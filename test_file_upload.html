@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件上传测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .result {
+            background: #f5f5f5;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 3px;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        input[type="file"] {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>文件上传功能测试</h1>
+    
+    <div class="test-section">
+        <h2>测试1: 题目生成功能</h2>
+        <p>上传test_upload.txt文件生成试题</p>
+        <input type="file" id="questionFile" accept=".txt,.pdf,.doc,.docx,.png">
+        <br>
+        <label>题目类型:</label>
+        <select id="questionType">
+            <option value="CHOICE">选择题</option>
+            <option value="FILL">填空题</option>
+            <option value="JUDGE">判断题</option>
+        </select>
+        <br>
+        <label>题目数量:</label>
+        <input type="number" id="questionCount" value="2" min="1" max="10">
+        <br>
+        <label>难度:</label>
+        <select id="difficulty">
+            <option value="EASY">简单</option>
+            <option value="MEDIUM">中等</option>
+            <option value="HARD">困难</option>
+        </select>
+        <br>
+        <button onclick="testQuestionGeneration()">生成题目</button>
+        <div id="questionResult" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>测试2: 知识库文档上传功能</h2>
+        <p>上传文档到知识库</p>
+        <input type="file" id="kbFile" accept=".txt,.pdf,.doc,.docx,.html">
+        <br>
+        <label>文档标题:</label>
+        <input type="text" id="docTitle" value="测试文档" placeholder="输入文档标题">
+        <br>
+        <button onclick="testKbUpload()">上传到知识库</button>
+        <div id="kbResult" class="result"></div>
+    </div>
+
+    <script>
+        async function testQuestionGeneration() {
+            const fileInput = document.getElementById('questionFile');
+            const resultDiv = document.getElementById('questionResult');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.textContent = '请选择文件';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('image', fileInput.files[0]);
+            formData.append('type', document.getElementById('questionType').value);
+            formData.append('count', document.getElementById('questionCount').value);
+            formData.append('difficulty', document.getElementById('difficulty').value);
+            
+            resultDiv.textContent = '正在生成题目...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/question/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    let result = '';
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value);
+                        result += chunk;
+                        resultDiv.textContent = result;
+                    }
+                } else {
+                    const errorText = await response.text();
+                    resultDiv.textContent = `错误 ${response.status}: ${errorText}`;
+                }
+            } catch (error) {
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+        
+        async function testKbUpload() {
+            const fileInput = document.getElementById('kbFile');
+            const resultDiv = document.getElementById('kbResult');
+            
+            if (!fileInput.files[0]) {
+                resultDiv.textContent = '请选择文件';
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+            formData.append('documentName', document.getElementById('docTitle').value);
+            formData.append('uploadUserId', '1'); // 模拟用户ID
+            formData.append('description', '测试文档描述');
+            
+            resultDiv.textContent = '正在上传文档...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/kb/documents/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    resultDiv.textContent = `上传成功: ${JSON.stringify(result, null, 2)}`;
+                } else {
+                    resultDiv.textContent = `上传失败 ${response.status}: ${result.message || JSON.stringify(result)}`;
+                }
+            } catch (error) {
+                resultDiv.textContent = `请求失败: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
